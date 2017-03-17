@@ -11,11 +11,6 @@ from flowtop.window import WindowManager
 RENDER_INTERVAL = 1
 
 
-def ip2int(ip):
-    packed_ip = socket.inet_aton(ip)
-    return struct.unpack("!L", packed_ip)[0]
-
-
 class Option:
     def __init__(self, text):
         self.__text = text
@@ -62,10 +57,10 @@ class Action:
 
 
 class FlowTop:
-    def __init__(self):
+    def __init__(self, interface):
         self.__running = True
         self.__wm = WindowManager()
-        self.__ft = FlowTracker()
+        self.__ft = FlowTracker(interface)
         self.__render_expired = False
 
         self.__options = [
@@ -211,7 +206,8 @@ class FlowTracker:
     FLOW_TIMEOUT = 30
     NO_EXPIRATION = 0
 
-    def __init__(self):
+    def __init__(self, interface):
+        self.__interface = interface
         self.__flow_table = None
         self.__start_ts = None
         self.clear()
@@ -271,8 +267,13 @@ class FlowTracker:
         return int(time.time()) - int(self.__start_ts)
 
     @staticmethod
+    def ip2int(ip):
+        packed_ip = socket.inet_aton(ip)
+        return struct.unpack("!L", packed_ip)[0]
+
+    @staticmethod
     def calc_five_tuple_hash(five_tuple):
-        return (ip2int(five_tuple[0]) * 59) ^ (ip2int(five_tuple[1]) * 59) ^ (five_tuple[2] * 13) ^ (five_tuple[3] * 13) ^ five_tuple[4]
+        return (FlowTracker.ip2int(five_tuple[0]) * 59) ^ (FlowTracker.ip2int(five_tuple[1]) * 59) ^ (five_tuple[2] * 13) ^ (five_tuple[3] * 13) ^ five_tuple[4]
 
     def clear(self):
         self.__flow_table = {}
@@ -313,7 +314,7 @@ class FlowTracker:
                 flow.expire()
 
     def capture(self):
-        scapy.sniff(iface='wlan0', filter='tcp or udp or sctp', store=1, prn=self.account_packet)
+        scapy.sniff(iface=self.__interface, filter='tcp or udp or sctp', store=1, prn=self.account_packet)
 
     def start(self):
         self.__thread = threading.Thread(target=self.capture)
