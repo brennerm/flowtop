@@ -114,7 +114,7 @@ class FlowTableWindow(Window):
             self.__flows.sort(key=lambda x: x.packets_n, reverse=True)
 
         min_index = 0
-        max_index = min(self._curses_window.getmaxyx()[0], len(self.__flows)) - 1 or 0
+        max_index = min(self._curses_window.getmaxyx()[0] - 1, len(self.__flows)) or 0
 
         visible_flows = self.__flows[min_index:max_index]
 
