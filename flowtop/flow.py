@@ -66,6 +66,7 @@ class FlowTop:
         self.__running = True
         self.__wm = WindowManager()
         self.__ft = FlowTracker()
+        self.__render_expired = False
 
         self.__options = [
             Option(''),
@@ -84,12 +85,15 @@ class FlowTop:
 
         self.__actions = {
             curses.KEY_F2: [Action(self.__wm.toggle_sort), Action(self.__options[1].toggle)],
-            curses.KEY_F3: [Action(self.__options[2].toggle)],
+            curses.KEY_F3: [Action(self.__toggle_render_expired), Action(self.__options[2].toggle)],
             curses.KEY_F5: [Action(self.__ft.clear)],
             curses.KEY_F10: [Action(self.shutdown)]
         }
 
         self.__wm.set_options(self.__options)
+
+    def __toggle_render_expired(self):
+        self.__render_expired = not self.__render_expired
 
     def run(self):
         last_render_ts = time.time()
@@ -107,7 +111,9 @@ class FlowTop:
             self.__ft.expire_flows()
 
             if (time.time() - last_render_ts) > RENDER_INTERVAL or force_render:
-                self.__wm.set_flows(self.__ft.active_flows)
+                self.__wm.set_flows(
+                    self.__ft.flows if self.__render_expired else self.__ft.active_flows
+                )
                 self.__wm.set_global_stats(*self.__ft.stats)
                 self.__wm.update()
                 last_render_ts = time.time()
