@@ -1,4 +1,5 @@
 import curses
+import logging
 import socket
 import struct
 import threading
@@ -7,6 +8,8 @@ import time
 from scapy import all as scapy
 
 from flowtop.window import WindowManager
+
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 RENDER_INTERVAL = 1
 
@@ -82,7 +85,8 @@ class FlowTop:
             curses.KEY_F2: [Action(self.__wm.toggle_sort), Action(self.__options[1].toggle)],
             curses.KEY_F3: [Action(self.__toggle_render_expired), Action(self.__options[2].toggle)],
             curses.KEY_F5: [Action(self.__ft.clear)],
-            curses.KEY_F10: [Action(self.shutdown)]
+            curses.KEY_F10: [Action(self.shutdown)],
+            curses.KEY_RESIZE: [Action(self.__wm.resize)]
         }
 
         self.__wm.set_options(self.__options)
@@ -211,11 +215,11 @@ class FlowTracker:
         self.__flow_table = None
         self.__start_ts = None
         self.clear()
-        self.__thread = None
+        self.__receiving_thread = None
 
     def __del__(self):
-        if self.__thread is not None:
-            self.__thread.join()
+        if self.__receiving_thread is not None:
+            self.__receiving_thread.join()
 
     @property
     def flows(self):
@@ -317,6 +321,6 @@ class FlowTracker:
         scapy.sniff(iface=self.__interface, filter='tcp or udp or sctp', store=1, prn=self.account_packet)
 
     def start(self):
-        self.__thread = threading.Thread(target=self.capture)
-        self.__thread.setDaemon(True)
-        self.__thread.start()
+        self.__receiving_thread = threading.Thread(target=self.capture)
+        self.__receiving_thread.setDaemon(True)
+        self.__receiving_thread.start()

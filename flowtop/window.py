@@ -1,9 +1,6 @@
 import curses
-import logging
 
 from flowtop.constants import *
-
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
 class WindowManager:
@@ -30,14 +27,13 @@ class WindowManager:
         curses.init_pair(WHITE_ON_CYAN, curses.COLOR_WHITE, curses.COLOR_CYAN)
         curses.init_pair(MAGENTA_ON_CYAN, curses.COLOR_MAGENTA, curses.COLOR_CYAN)
 
-        max_height, max_width = self.__main_win.getmaxyx()
-        max_height -= 1
-
-        self.__flow_table_window = FlowTableWindow(max_height - 1, max_width, 0, 0)
-        self.__global_stat_window = GlobalStatWindow(1, max_width, max_height - 1, 0)
-        self.__option_pane = OptionPane(1, max_width, max_height, 0)
+        self.__flow_table_window = FlowTableWindow(0, 0, 0, 0)
+        self.__global_stat_window = GlobalStatWindow(0, 0, 0, 0)
+        self.__option_pane = OptionPane(0, 0, 0, 0)
 
         self.__windows = [self.__flow_table_window, self.__global_stat_window, self.__option_pane]
+
+        self.resize()
 
     def __del__(self):
         self.__deinitialize_curses()
@@ -47,6 +43,13 @@ class WindowManager:
         self.__main_win.keypad(0)
         curses.echo()
         curses.endwin()
+
+    def resize(self):
+        max_height, max_width = self.__main_win.getmaxyx()
+
+        self.__flow_table_window.resize(max_height - 3, max_width, 0, 0)
+        self.__global_stat_window.resize(1, max_width, max_height - 2, 0)
+        self.__option_pane.resize(1, max_width, max_height - 1, 0)
 
     def get_pressed_key(self):
         return self.__main_win.getch()
@@ -77,6 +80,10 @@ class Window:
     @staticmethod
     def _shorten_string(string, width):
         return (string[:width - 4] + '...') if len(string) > width else string
+
+    def resize(self, height, width, y, x):
+        self._curses_window.resize(height, width)
+        self._curses_window.mvwin(y, x)
 
     def update(self):
         self._curses_window.clear()
