@@ -223,7 +223,7 @@ class FlowTracker:
 
     @property
     def flows(self):
-        return list(self.__flow_table.values())
+        return self.__flow_table
 
     @property
     def flows_n(self):
@@ -231,7 +231,7 @@ class FlowTracker:
 
     @property
     def active_flows(self):
-        return [flow for flow in self.__flow_table.values() if not flow.expired]
+        return {hashsum: flow for hashsum, flow in self.__flow_table.items() if not flow.expired}
 
     @property
     def avg_flows_per_s(self):

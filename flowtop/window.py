@@ -97,7 +97,7 @@ class Window:
 class FlowTableWindow(Window):
     def __init__(self, height, width, pos_y, pos_x):
         super(FlowTableWindow, self).__init__(height, width, pos_y, pos_x)
-        self.__flows = []
+        self.__flows = {}
         self.__sort_by_packets = True
 
     def set_flows(self, flows):
@@ -116,16 +116,16 @@ class FlowTableWindow(Window):
         self._curses_window.addstr(0, 0, row_format.format(*headers), curses.A_BOLD)
 
         if self.__sort_by_packets:
-            self.__flows.sort(key=lambda x: x.bytes_n, reverse=True)
+            sorted_flows = sorted(self.__flows.items(), key=lambda x: x[1].bytes_n, reverse=True)
         else:
-            self.__flows.sort(key=lambda x: x.packets_n, reverse=True)
+            sorted_flows = sorted(self.__flows.items(), key=lambda x: x[1].packets_n, reverse=True)
 
         min_index = 0
-        max_index = min(self._curses_window.getmaxyx()[0] - 1, len(self.__flows)) or 0
+        max_index = min(self._curses_window.getmaxyx()[0] - 1, len(sorted_flows)) or 0
 
-        visible_flows = self.__flows[min_index:max_index]
+        visible_flows = sorted_flows[min_index:max_index]
 
-        for i, flow in enumerate(visible_flows, 1):
+        for i, (hashsum, flow) in enumerate(visible_flows, 1):
             src = FlowTableWindow._shorten_string(flow.l3_src, col_width)
             dst = FlowTableWindow._shorten_string(flow.l3_dst, col_width)
 
