@@ -1,4 +1,6 @@
+import collections
 import curses
+import itertools
 
 from flowtop.constants import *
 
@@ -66,6 +68,9 @@ class WindowManager:
     def toggle_sort(self):
         self.__flow_table_window.toggle_sort()
 
+    def change_selection(self, up):
+        self.__flow_table_window.change_highlight(up)
+
     def update(self):
         for window in self.__windows:
             window.update()
@@ -99,12 +104,41 @@ class FlowTableWindow(Window):
         super(FlowTableWindow, self).__init__(height, width, pos_y, pos_x)
         self.__flows = {}
         self.__sort_by_packets = True
+        self.__highlighted_flow = None
 
     def set_flows(self, flows):
         self.__flows = flows
 
     def toggle_sort(self):
         self.__sort_by_packets = not self.__sort_by_packets
+
+    def change_highlight(self, up):
+        visible_flows = self.__get_visible_flows()
+
+        index = list(visible_flows.keys()).index(self.__highlighted_flow)
+
+        new_index = index - 1 if up else index + 1
+        new_index = max(new_index, 0)
+        new_index = min(new_index, len(visible_flows) - 1)
+
+        self.__highlighted_flow = list(visible_flows.keys())[new_index]
+
+    def __get_sorted_flows(self):
+        if self.__sort_by_packets:
+
+            return collections.OrderedDict(sorted(self.__flows.items(), key=lambda x: x[1].bytes_n, reverse=True))
+        else:
+            return collections.OrderedDict(sorted(self.__flows.items(), key=lambda x: x[1].packets_n, reverse=True))
+
+    def __get_visible_flows(self):
+        sorted_flows = self.__get_sorted_flows()
+
+        min_index = 0
+        max_index = min(self._curses_window.getmaxyx()[0] - 1, len(sorted_flows)) or 0
+
+        return collections.OrderedDict(
+            itertools.islice(sorted_flows.items(), min_index, max_index)
+        )  # slicing OrderedDict
 
     def _update(self):
         headers = ['Ingress IP', 'Egress IP', 'Ingress Port', 'Egress Port', 'L4 Protocol', '#Packets', '#Bytes']
@@ -115,22 +149,20 @@ class FlowTableWindow(Window):
 
         self._curses_window.addstr(0, 0, row_format.format(*headers), curses.A_BOLD)
 
-        if self.__sort_by_packets:
-            sorted_flows = sorted(self.__flows.items(), key=lambda x: x[1].bytes_n, reverse=True)
-        else:
-            sorted_flows = sorted(self.__flows.items(), key=lambda x: x[1].packets_n, reverse=True)
+        visible_flows = self.__get_visible_flows()
 
-        min_index = 0
-        max_index = min(self._curses_window.getmaxyx()[0] - 1, len(sorted_flows)) or 0
+        if self.__highlighted_flow not in visible_flows:
+            self.__highlighted_flow = None
 
-        visible_flows = sorted_flows[min_index:max_index]
+        if self.__highlighted_flow is None and len(visible_flows) > 0:
+            self.__highlighted_flow = list(visible_flows.keys())[0]
 
-        for i, (hashsum, flow) in enumerate(visible_flows, 1):
+        for i, (hashsum, flow) in enumerate(visible_flows.items(), 1):
             src = FlowTableWindow._shorten_string(flow.l3_src, col_width)
             dst = FlowTableWindow._shorten_string(flow.l3_dst, col_width)
 
             row = row_format.format(src, dst, flow.src_port, flow.dst_port, PROTOCOL_NUMBERS.get(flow.ip_proto, flow.ip_proto), flow.packets_n, flow.bytes_n)
-            self._curses_window.addstr(i, 0, row)
+            self._curses_window.addstr(i, 0, row, curses.A_REVERSE if hashsum == self.__highlighted_flow else curses.A_NORMAL)
 
 
 class GlobalStatWindow(Window):
